@@ -31,6 +31,8 @@ From the repository root, `make -C Kernel` builds the ISO. `make -C Kernel kerne
 
 [`Kernel/Version.cfg`](../../Kernel/Version.cfg) is a separate per-file version manifest; it is not the build settings file. The configuration app can update both the file-version manifest and driver selections.
 
+The Rust panic handler is built with `rustc` for `x86_64-unknown-none`; install that target with `rustup target add x86_64-unknown-none` if it is missing.
+
 ## Scope and implementation status
 
 These pages describe the checked-in implementation, not promises of complete hardware compatibility. Some pieces are foundations or probes rather than full device implementations. In particular, Intel 8265 Wi-Fi support detects the PCI device, prepares bounded PCI/MMIO/DMA resources, reads and validates API-36 firmware, and stages init/runtime chunks in memory; it does not upload firmware, start the radio, scan for networks, or transport Wi-Fi packets. Radeon HD support currently reports probe/classification information rather than providing a complete accelerated display driver. Consult the corresponding driver pages before relying on a feature.

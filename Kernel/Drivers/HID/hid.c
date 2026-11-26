@@ -53,6 +53,7 @@ static uint8_t keyboard_scancode(uint8_t usage)
         case 0x42: return 0x43;
         case 0x43: return 0x44;
         case 0x44: return 0x57;
+        case 0x46: return 0x37;
         default: return 0;
     }
 }
@@ -109,7 +110,11 @@ bool hid_handle_boot_keyboard_report(const uint8_t report[8])
         {
             uint8_t scancode = keyboard_scancode(old_usage);
             if (scancode)
+            {
+                if (old_usage == 0x46)
+                    keyboard_handle_scancode(0xE0);
                 keyboard_handle_scancode(scancode | 0x80);
+            }
         }
     }
     for (uint32_t i = 0; i < 6; i++)
@@ -119,7 +124,11 @@ bool hid_handle_boot_keyboard_report(const uint8_t report[8])
         {
             uint8_t scancode = keyboard_scancode(usage);
             if (scancode)
+            {
+                if (usage == 0x46)
+                    keyboard_handle_scancode(0xE0);
                 keyboard_handle_scancode(scancode);
+            }
         }
     }
 

@@ -35,6 +35,7 @@ static uint32_t systemd_log_count;
 static bool systemd_log_enabled;
 static bool install_progress_active;
 static uint32_t install_progress_percent;
+static bool serial_initialized;
 
 static inline void outb(uint16_t port, uint8_t value)
 {
@@ -80,7 +81,32 @@ bool serial_init(void)
     /* Enable DTR, RTS and OUT2 */
     outb(SERIAL_MCR, 0x0B);
 
+    serial_initialized = true;
     return true;
+}
+
+static bool serial_transmit_char(char c)
+{
+    for (uint32_t i = 0; i < 100000; i++)
+    {
+        if (inb(SERIAL_LSR) & 0x20)
+        {
+            outb(SERIAL_DATA, (uint8_t)c);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void serial_putc_uart(char c)
+{
+    if (!serial_initialized)
+        return;
+
+    if (c == '\n')
+        (void)serial_transmit_char('\r');
+    (void)serial_transmit_char(c);
 }
 
 void serial_putc(char c)
@@ -88,18 +114,7 @@ void serial_putc(char c)
     if (c == '\n')
         serial_putc('\r');
 
-    bool transmitted = false;
-    for (uint32_t i = 0; i < 100000; i++)
-    {
-        if (inb(SERIAL_LSR) & 0x20)
-        {
-            outb(SERIAL_DATA, (uint8_t)c);
-            transmitted = true;
-            break;
-        }
-    }
-
-    if (!transmitted)
+    if (!serial_transmit_char(c))
         return;
 
     console_history_append(c);

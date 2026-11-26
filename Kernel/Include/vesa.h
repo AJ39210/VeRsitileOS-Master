@@ -24,6 +24,11 @@ bool vesa_blit_rgb(
     const uint32_t *pixels,
     uint64_t stride
 );
+bool vesa_blit_rgb_scaled(
+    const uint8_t *pixels,
+    uint64_t source_width,
+    uint64_t source_height
+);
 bool vesa_read_rgb(
     uint64_t x,
     uint64_t y,

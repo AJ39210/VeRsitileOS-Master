@@ -1,11 +1,20 @@
 
 include config.cfg
 
+RUSTC ?= rustc
+RUST_TARGET ?= x86_64-unknown-none
+PYTHON ?= python3
+OBJCOPY ?= objcopy
+
 ENABLED_DRIVER_SOURCES = $(foreach source,$(DRIVER_SOURCES),$(if $(filter y,$(DRIVER_ENABLE_$(source))),$(source)))
 KERNEL_SOURCES = $(KERNEL_C_SOURCES) $(ENABLED_DRIVER_SOURCES)
 C_OBJECTS = $(KERNEL_SOURCES:%.c=$(BUILD)/%.o)
 ASM_OBJECTS = $(ASM_SOURCES:%.asm=$(BUILD)/asm/%.o)
-OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS)
+RUST_LIBRARIES = $(KERNEL_RUST_SOURCES:%.rs=$(BUILD)/%.a)
+PANIC_IMAGE_SOURCE = $(ROOT)/system/etc/panic.png
+PANIC_IMAGE_DATA = $(BUILD)/panic_background.rgb
+PANIC_IMAGE_OBJECT = $(BUILD)/panic_background.o
+OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS) $(RUST_LIBRARIES) $(PANIC_IMAGE_OBJECT)
 MODULE_INSTALL_DIR = $(ROOT)/system/lib/modules/$(KERNEL_VERSION)
 RADEONHD_MODULE_BUILD = $(BUILD)/modules/radeonhd.ko
 INTEL_HD2000_MODULE_BUILD = $(BUILD)/modules/intel_hd2000.ko
@@ -71,6 +80,17 @@ modules: $(MODULE_INSTALLS)
 
 $(BUILD)/kernel.elf: $(OBJECTS) $(KERNEL_LINKER_SCRIPT)
 	$(LD) $(LDFLAGS) -o $@ $(OBJECTS)
+
+$(PANIC_IMAGE_DATA): $(PANIC_IMAGE_SOURCE) tools/panic_png_to_rgb.py
+	mkdir -p $(dir $@)
+	$(PYTHON) tools/panic_png_to_rgb.py $(PANIC_IMAGE_SOURCE) $@
+
+$(PANIC_IMAGE_OBJECT): $(PANIC_IMAGE_DATA)
+	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 \
+		--rename-section .data=.rodata.panic_background,alloc,load,readonly,data,contents \
+		--redefine-sym _binary_build_panic_background_rgb_start=panic_background_start \
+		--redefine-sym _binary_build_panic_background_rgb_end=panic_background_end \
+		$< $@
 
 # Build optional GPU probe implementations as relocatable ELF modules.
 $(BUILD)/modules/radeonhd_module.o: Kernel/modules/radeonhd_module.c $(KERNEL_CONFIG_STAMP)
@@ -214,6 +234,16 @@ cfg:
 $(BUILD)/asm/%.o: %.asm $(KERNEL_CONFIG_STAMP)
 	mkdir -p $(dir $@)
 	$(NASM) -f $(NASM_FORMAT) $< -o $@
+
+$(BUILD)/%.a: %.rs
+	mkdir -p $(dir $@)
+	$(RUSTC) --edition=2021 --crate-name=versitile_kernel \
+		--crate-type=staticlib --emit=link --target=$(RUST_TARGET) \
+		-C panic=abort -C opt-level=2 -C relocation-model=static \
+		-C force-frame-pointers=yes \
+		-C code-model=kernel -C no-redzone=yes \
+		-C force-unwind-tables=no -C target-feature=-sse,-sse2 \
+		-o $@ $<
 
 ifneq ($(strip $(CONFIG_SIGNATURE)),$(strip $(ACTIVE_CONFIG_SIGNATURE)))
 $(KERNEL_CONFIG_STAMP): FORCE_CONFIG_SIGNATURE

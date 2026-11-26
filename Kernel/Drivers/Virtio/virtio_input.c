@@ -23,6 +23,8 @@
 #define VIRTIO_KEY_LEFT 0x110
 #define VIRTIO_KEY_RIGHT 0x111
 #define VIRTIO_KEY_MIDDLE 0x112
+#define VIRTIO_KEY_SYSRQ 99
+#define VIRTIO_KEY_PRINT 210
 
 typedef struct __attribute__((packed))
 {
@@ -117,6 +119,9 @@ static uint8_t key_scancode(uint16_t key)
         case 115: return 0x51;
         case 119: return 0x52;
         case 125: return 0x53;
+        case VIRTIO_KEY_SYSRQ:
+        case VIRTIO_KEY_PRINT:
+            return 0x37;
         default: return 0;
     }
 }
@@ -144,6 +149,9 @@ static void handle_event(
             uint8_t scancode = key_scancode(event->code);
             if (scancode)
             {
+                if (event->code == VIRTIO_KEY_SYSRQ ||
+                    event->code == VIRTIO_KEY_PRINT)
+                    keyboard_handle_scancode(0xE0);
                 if (event->value == 0)
                     scancode |= 0x80;
                 keyboard_handle_scancode(scancode);

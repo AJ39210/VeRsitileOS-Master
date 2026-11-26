@@ -15,6 +15,7 @@ typedef enum {
 bool serial_init(void);
 
 void serial_putc(char c);
+void serial_putc_uart(char c);
 void serial_write(const char *str);
 void serial_console_write(const char *buffer, uint64_t size);
 void serial_console_replay(void);

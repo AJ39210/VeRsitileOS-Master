@@ -40,3 +40,11 @@ Want to help ?
 email me at VeRsitileoss@gmail.com    ( i know the email look like a scam email but smh someone took my idea of email mb.)
 
 PS: also mb if you dont kinda understand what i talk in this readme.md this is made in a rush so mb. mb.
+
+<p align="center">
+  <img src="docs/showcase/Screenshot%20From%202026-11-26%2021-40-30.png" width="48%" alt="" />
+  <img src="docs/showcase/Screenshot%20From%202026-11-26%2021-41-37.png" width="48%" alt="" />
+  <img src="docs/showcase/Screenshot%20From%202026-11-26%2021-43-43.png" width="48%" alt="" />
+  <img src="docs/showcase/Screenshot%20From%202026-11-26%2021-44-37.png" width="48%" alt="" />
+  <img src="docs/showcase/Screenshot%20From%202026-11-26%2021-46-56.png" width="48%" alt="" />
+</p>

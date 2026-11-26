@@ -6,7 +6,7 @@ The `Kernel/Kernel/` directory contains boot coordination and core services. The
 
 - [`kmain.c`](../../../Kernel/Kernel/kmain.c) — Limine requests, ordered initialization, hardware probing, framebuffer/font setup, and transition into later kernel work.
 - [`block.c`](../../../Kernel/Kernel/block.c) — bounded block-device registry with validated sector reads/writes.
-- [`panic.c`](../../../Kernel/Kernel/panic.c) — fatal error and exception reporting, using serial and framebuffer output when available.
+- [`panic.rs`](../../../Kernel/rust/src/panic/panic.rs) — freestanding Rust panic handling and C-ABI fatal exception reporting, showing a stop code, reason, fault details, and bounded stack trace over the panic background.
 - [`test.c`](../../../Kernel/Kernel/test.c) — kernel self-tests covering memory, devices, input, and related interfaces; `tests_run()` is the test entry point.
 - [`certificate.md`](../../../Kernel/Kernel/certificate.md) — project certificate/documentation file; not part of kernel compilation.
 
@@ -20,4 +20,6 @@ The `Kernel/Kernel/` directory contains boot coordination and core services. The
 - [System calls](syscalls/main.md) — user-to-kernel ABI dispatch.
 - [Timer](timer/main.md) — PIT tick/timekeeping.
 
-Several assembly files provide entry stubs or low-level routines for their corresponding C modules. C/ASM source lists are defined in [`Kernel/config.cfg`](../../../Kernel/config.cfg).
+Several assembly files provide entry stubs or low-level routines for their corresponding C modules. C, assembly, and Rust source lists are defined in [`Kernel/config.cfg`](../../../Kernel/config.cfg).
+
+The panic background is embedded from `system/etc/panic.png` during the kernel build, so panic display does not depend on filesystem access. [`panic_png_to_rgb.py`](../../../Kernel/tools/panic_png_to_rgb.py) converts the PNG to RGB data for the kernel image.

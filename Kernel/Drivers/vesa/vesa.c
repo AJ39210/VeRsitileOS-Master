@@ -256,6 +256,37 @@ bool vesa_blit_rgb(
     return true;
 }
 
+bool vesa_blit_rgb_scaled(
+    const uint8_t *pixels,
+    uint64_t source_width,
+    uint64_t source_height
+)
+{
+    if (!framebuffer || !pixels || !source_width || !source_height ||
+        !width || !height)
+        return false;
+
+    for (uint64_t y = 0; y < height; y++)
+    {
+        uint64_t source_y = y * source_height / height;
+        uint32_t *destination = framebuffer + y * pitch;
+        for (uint64_t x = 0; x < width; x++)
+        {
+            uint64_t source_x = x * source_width / width;
+            const uint8_t *source =
+                pixels + (source_y * source_width + source_x) * 3;
+            uint32_t color =
+                ((uint32_t)source[0] << 16) |
+                ((uint32_t)source[1] << 8) |
+                source[2];
+            destination[x] = pack_color(color);
+        }
+    }
+
+    present_draw_batch();
+    return true;
+}
+
 bool vesa_read_rgb(
     uint64_t x,
     uint64_t y,

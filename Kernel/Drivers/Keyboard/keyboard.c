@@ -3,6 +3,7 @@
 #include "ps2.h"
 #include "xhci.h"
 #include "virtio_input.h"
+#include "panic.h"
 
 /*
  * PS/2 Set 1 keyboard driver.
@@ -22,12 +23,20 @@ static uint16_t event_tail = 0;
 
 static bool left_shift = false;
 static bool right_shift = false;
+static bool left_control = false;
+static bool right_control = false;
 static bool caps_lock = false;
+static bool sysrq_pressed = false;
 static bool extended = false;
 
 static bool shift_active(void)
 {
     return left_shift || right_shift;
+}
+
+static bool control_active(void)
+{
+    return left_control || right_control;
 }
 
 /* US QWERTY layout */
@@ -136,7 +145,10 @@ void keyboard_init(void)
 
     left_shift = false;
     right_shift = false;
+    left_control = false;
+    right_control = false;
     caps_lock = false;
+    sysrq_pressed = false;
     extended = false;
 }
 
@@ -152,6 +164,43 @@ void keyboard_handle_scancode(uint8_t scancode)
     bool is_extended = extended;
     bool released = (scancode & 0x80) != 0;
     uint8_t code = scancode & 0x7F;
+
+    if (code == 0x1D)
+    {
+        if (is_extended)
+            right_control = !released;
+        else
+            left_control = !released;
+        extended = false;
+
+        keyboard_event_t event = {
+            .scancode = code,
+            .character = 0,
+            .pressed = !released,
+            .shift = shift_active(),
+            .caps_lock = caps_lock,
+            .extended = is_extended
+        };
+        event_push(event);
+        return;
+    }
+
+    if (is_extended && code == 0x37)
+    {
+        sysrq_pressed = !released;
+        extended = false;
+
+        keyboard_event_t event = {
+            .scancode = code,
+            .character = 0,
+            .pressed = !released,
+            .shift = shift_active(),
+            .caps_lock = caps_lock,
+            .extended = true
+        };
+        event_push(event);
+        return;
+    }
 
     if (!is_extended)
     {
@@ -217,6 +266,9 @@ process_key:
         event_push(event);
         return;
     }
+
+    if (code == 0x25 && control_active() && sysrq_pressed)
+        kernel_panic("Ctrl+SysRq+K requested");
 
     bool shift = shift_active();
 

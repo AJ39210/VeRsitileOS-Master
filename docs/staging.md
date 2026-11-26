@@ -7,6 +7,15 @@ X? - Updated
 !Y - Removed
 ?? - Other stuff ( needs to be specifed )
 
+
+
+
+Version:   1     .      0      .      0
+           |            |             |
+      big relese    Small relese    Patch
+                      
+
+
 Need to add / validate :
             RTL8102E / RTL8103E driver implementation is present as a shared
             descriptor-ring module; physical-hardware validation remains.
