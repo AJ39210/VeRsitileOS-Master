@@ -40,25 +40,16 @@ bool timer_init(void)
      */
     uint16_t divisor = PIT_INPUT_FREQUENCY / PIT_FREQUENCY;
 
-    /*
-     * Configure PIT:
-     * Channel 0
-     * Low byte / high byte
-     * Mode 3 (square wave generator)
-     * Binary counting
-     */
+    
     outb(PIT_COMMAND, 0x36);
 
-    /* Send divisor, low byte first. */
+
     outb(PIT_CHANNEL_0, (uint8_t)(divisor & 0xFF));
 
-    /* Then high byte. */
+
     outb(PIT_CHANNEL_0, (uint8_t)(divisor >> 8));
 
-    /*
-     * Register IRQ0 only after programming the PIT.
-     * This also unmasks IRQ0 through your APIC code.
-     */
+
     if (!irq_register_handler(0, pit_irq_handler))
         return false;
 

@@ -58,6 +58,11 @@ static inline void outb(uint16_t port, uint8_t value)
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
+static inline void outl(uint16_t port, uint32_t value)
+{
+    __asm__ volatile ("outl %0, %1" : : "a"(value), "Nd"(port));
+}
+
 static inline uint8_t inb(uint16_t port)
 {
     uint8_t value;
@@ -202,8 +207,7 @@ static bool initialize_device(
         outb(io_base + 0x12,
             VIRTIO_INPUT_STATUS_ACKNOWLEDGE |
             VIRTIO_INPUT_STATUS_DRIVER);
-        __asm__ volatile ("outl %0, %1" :
-            : "a"(0U), "Nd"(io_base + 0x04));
+        outl((uint16_t)(io_base + 0x04), 0U);
     }
     if (!(device->modern
             ? virtio_pci_modern_queue_init(
