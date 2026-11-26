@@ -1,0 +1,91 @@
+#ifndef SYSCALL_H
+#define SYSCALL_H
+
+#include <stdint.h>
+
+#define SYSCALL_VECTOR 0x80
+
+/*
+ * int 0x80 ABI: RAX is the number, arguments use RDI/RSI/RDX, and
+ * RAX returns either a nonnegative result or a negative error number.
+ */
+enum syscall_number {
+    SYS_WRITE = 1,
+    SYS_READ = 2,
+    SYS_TIME_MS = 3,
+    SYS_ALLOC = 4,
+    SYS_FREE = 5,
+    SYS_OPEN = 6,
+    SYS_CLOSE = 7,
+    SYS_SPAWN = 8,
+    SYS_EXIT = 9,
+    SYS_GETPID = 10,
+    SYS_YIELD = 11,
+    SYS_SPAWN_ELF = 12,
+    SYS_SEEK = 13,
+    SYS_SCREEN_INFO = 14,
+    SYS_DRAW = 15,
+    SYS_MOUSE_READ = 16,
+    SYS_READDIR = 17,
+    SYS_MKDIR = 18,
+    SYS_RMDIR = 19,
+    SYS_ISDIR = 20,
+    SYS_TASK_ACTIVE = 21,
+    SYS_SCREEN_BLIT = 22,
+    SYS_SCREEN_READ = 23,
+    SYS_PANIC = 24,
+    SYS_NETWORK_INFO = 25,
+    SYS_NETWORK_PING = 26,
+    SYS_SPAWN_ELF_COMMAND = 27,
+    SYS_READ_CHILD_OUTPUT = 28,
+    SYS_MMAP = 29,
+    SYS_MUNMAP = 30,
+    SYS_MPROTECT = 31,
+    SYS_SOCKETPAIR = 32,
+    SYS_POLL = 33,
+    SYS_KEYBOARD_READ = 34,
+    SYS_NETWORK_RESOLVE = 35,
+    SYS_CONSOLE_CLEAR = 36,
+    SYS_CONSOLE_SET_COLOR = 37,
+    SYS_SYSTEMD_LOG_CONTROL = 38,
+    SYS_SYSTEMD_WATCHDOG = 39,
+    SYS_DRAW_BATCH = 40,
+    SYS_INSTALL = 41,
+    SYS_MODULE_LOAD = 42,
+    SYS_NETWORK_INIT = 43,
+    SYS_RTC_READ = 44,
+    SYS_UNLINK = 45
+};
+
+enum syscall_error {
+    SYSCALL_EPERM = 1,
+    SYSCALL_ENOENT = 2,
+    SYSCALL_EIO = 5,
+    SYSCALL_ENOEXEC = 8,
+    SYSCALL_EBADF = 9,
+    SYSCALL_EAGAIN = 11,
+    SYSCALL_ENOMEM = 12,
+    SYSCALL_EACCES = 13,
+    SYSCALL_EFAULT = 14,
+    SYSCALL_ENODEV = 19,
+    SYSCALL_ENOTSUP = 95,
+    SYSCALL_EPIPE = 32,
+    SYSCALL_EAFNOSUPPORT = 97,
+    SYSCALL_EPROTONOSUPPORT = 93,
+    SYSCALL_EISDIR = 21,
+    SYSCALL_EBUSY = 16,
+    SYSCALL_EINVAL = 22,
+    SYSCALL_ESPIPE = 29,
+    SYSCALL_EROFS = 30,
+    SYSCALL_ENAMETOOLONG = 36,
+    SYSCALL_ENOSYS = 38,
+    SYSCALL_EEXIST = 17,
+    SYSCALL_ENOTDIR = 20,
+    SYSCALL_ENOSPC = 28,
+    SYSCALL_ENOTEMPTY = 39,
+    SYSCALL_ETIMEDOUT = 110
+};
+
+void syscall_init(void);
+
+#endif

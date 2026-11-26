@@ -1,0 +1,9 @@
+# Per-file version manifest
+
+[`Kernel/Version.cfg`](../../Kernel/Version.cfg) records a version for each tracked Kernel file. The file also defines `kernel_version` (the release string embedded in the kernel) and `base_version` (the starting version used for newly added entries).
+
+When changing a tracked source/configuration file, update its manifest version as appropriate. If a file is being retired but remains in the tree, use `0.0.0` and add a comment explaining why. Remove the manifest entry only after the file itself has been removed.
+
+Use the configuration app's Version tab (`make cfg`) to search, edit, add, and remove manifest entries. Removing an entry does not delete the source file. The app validates paths and versions and requires a comment for `0.0.0`.
+
+Build options and driver selections are stored separately in [`Kernel/config.cfg`](../../Kernel/config.cfg); see [configuration.about](configuration.about) and the [Kernel source guide](main.md).

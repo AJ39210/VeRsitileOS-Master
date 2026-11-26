@@ -1,0 +1,9 @@
+# Kernel build configuration
+
+[`Kernel/config.cfg`](../../Kernel/config.cfg) is included by the kernel Makefile. Keep it in place: it contains compiler and linker settings, kernel/user source lists, library inputs, and the per-driver `y`/`n` selections. The checked-in configuration is expected to match the source tree; restoring a config from another revision may refer to missing files or omit current files.
+
+All driver selections currently default to `y`. The host configuration app's Config tab can toggle each `DRIVER_ENABLE_<path>` setting and saves it to this file. You can also edit the file directly, preserving GNU Make syntax and valid `y`/`n` values.
+
+Run `make cfg` from the `Kernel` directory, or `make -C Kernel cfg` from the repository root, to open the configuration app. The Config tab edits driver selections; the Version tab edits [`Version.cfg`](../../Kernel/Version.cfg).
+
+See the [Kernel source guide](main.md) and [configuration app guide](tools/configuration_app/main.md) for the build flow and app details.

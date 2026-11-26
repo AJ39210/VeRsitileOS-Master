@@ -1,0 +1,1 @@
+qemu-system-x86_64 -m 1G -drive file=disk.img,format=raw,if=ide -boot order=c
