@@ -22,4 +22,4 @@ The `Kernel/Kernel/` directory contains boot coordination and core services. The
 
 Several assembly files provide entry stubs or low-level routines for their corresponding C modules. C, assembly, and Rust source lists are defined in [`Kernel/config.cfg`](../../../Kernel/config.cfg).
 
-The panic background is embedded from `system/etc/panic.png` during the kernel build, so panic display does not depend on filesystem access. [`panic_png_to_rgb.py`](../../../Kernel/tools/panic_png_to_rgb.py) converts the PNG to RGB data for the kernel image.
+The panic background is embedded from [`Kernel/tools/panic.png`](../../../Kernel/tools/panic.png) during the kernel build, so panic display does not depend on filesystem access. [`panic_png_to_rgb.py`](../../../Kernel/tools/panic_png_to_rgb.py) converts the PNG to RGB data for the kernel image. ( i tired to make it so it displays from the rootfs but it cant work in panic situations ...)
