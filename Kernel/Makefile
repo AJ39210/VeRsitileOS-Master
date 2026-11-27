@@ -7,11 +7,30 @@ PYTHON ?= python3
 OBJCOPY ?= objcopy
 
 ENABLED_DRIVER_SOURCES = $(foreach source,$(DRIVER_SOURCES),$(if $(filter y,$(DRIVER_ENABLE_$(source))),$(source)))
-KERNEL_SOURCES = $(KERNEL_C_SOURCES) $(ENABLED_DRIVER_SOURCES)
+KERNEL_MM_C_SOURCES = \
+	Kernel/mm/pmm.c \
+	Kernel/mm/vmm.c \
+	Kernel/mm/paging.c \
+	Kernel/mm/mm.c \
+	Kernel/mm/sync/spinlock.c \
+	Kernel/mm/region/region.c \
+	Kernel/mm/heap/heap.c
+ifeq ($(MM_IMPLEMENTATION),1)
+KERNEL_MM_SELECTED_C_SOURCES = $(KERNEL_MM_C_SOURCES)
+RUST_MM_CFG =
+else ifeq ($(MM_IMPLEMENTATION),2)
+KERNEL_MM_SELECTED_C_SOURCES =
+RUST_MM_CFG = --cfg 'feature="rust-mm"'
+else
+$(error MM_IMPLEMENTATION must be 1 (C) or 2 (Rust), got '$(MM_IMPLEMENTATION)')
+endif
+KERNEL_SOURCES = $(KERNEL_C_SOURCES) $(KERNEL_MM_SELECTED_C_SOURCES) $(ENABLED_DRIVER_SOURCES)
 C_OBJECTS = $(KERNEL_SOURCES:%.c=$(BUILD)/%.o)
 ASM_OBJECTS = $(ASM_SOURCES:%.asm=$(BUILD)/asm/%.o)
-RUST_LIBRARIES = $(KERNEL_RUST_SOURCES:%.rs=$(BUILD)/%.a)
-PANIC_IMAGE_SOURCE = $(ROOT)/system/etc/panic.png
+RUST_LIBRARIES = $(BUILD)/rust/kernel-mm$(MM_IMPLEMENTATION).a
+RUST_SOURCES = $(shell find rust/src -type f -name '*.rs')
+RUST_DEPENDENCIES = $(filter-out $(KERNEL_RUST_SOURCES),$(RUST_SOURCES))
+PANIC_IMAGE_SOURCE = tools/panic.png
 PANIC_IMAGE_DATA = $(BUILD)/panic_background.rgb
 PANIC_IMAGE_OBJECT = $(BUILD)/panic_background.o
 OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS) $(RUST_LIBRARIES) $(PANIC_IMAGE_OBJECT)
@@ -235,7 +254,7 @@ $(BUILD)/asm/%.o: %.asm $(KERNEL_CONFIG_STAMP)
 	mkdir -p $(dir $@)
 	$(NASM) -f $(NASM_FORMAT) $< -o $@
 
-$(BUILD)/%.a: %.rs
+$(BUILD)/rust/kernel-mm1.a: $(KERNEL_RUST_SOURCES) $(RUST_DEPENDENCIES)
 	mkdir -p $(dir $@)
 	$(RUSTC) --edition=2021 --crate-name=versitile_kernel \
 		--crate-type=staticlib --emit=link --target=$(RUST_TARGET) \
@@ -243,7 +262,17 @@ $(BUILD)/%.a: %.rs
 		-C force-frame-pointers=yes \
 		-C code-model=kernel -C no-redzone=yes \
 		-C force-unwind-tables=no -C target-feature=-sse,-sse2 \
-		-o $@ $<
+		-o $@ $(KERNEL_RUST_SOURCES)
+
+$(BUILD)/rust/kernel-mm2.a: $(KERNEL_RUST_SOURCES) $(RUST_DEPENDENCIES)
+	mkdir -p $(dir $@)
+	$(RUSTC) --edition=2021 --crate-name=versitile_kernel \
+		--crate-type=staticlib --emit=link --target=$(RUST_TARGET) \
+		$(RUST_MM_CFG) -C panic=abort -C opt-level=2 -C relocation-model=static \
+		-C force-frame-pointers=yes \
+		-C code-model=kernel -C no-redzone=yes \
+		-C force-unwind-tables=no -C target-feature=-sse,-sse2 \
+		-o $@ $(KERNEL_RUST_SOURCES)
 
 ifneq ($(strip $(CONFIG_SIGNATURE)),$(strip $(ACTIVE_CONFIG_SIGNATURE)))
 $(KERNEL_CONFIG_STAMP): FORCE_CONFIG_SIGNATURE

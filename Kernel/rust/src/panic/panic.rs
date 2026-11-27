@@ -1,5 +1,3 @@
-#![no_std]
-
 use core::arch::asm;
 use core::ffi::c_char;
 use core::fmt::{self, Write};
