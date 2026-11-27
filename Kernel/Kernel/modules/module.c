@@ -11,6 +11,7 @@
 #include "pmm.h"
 #include "radeonhd.h"
 #include "serial.h"
+#include "security.h"
 #include "syscall.h"
 #include "task.h"
 #include "vfs.h"
@@ -905,6 +906,20 @@ static bool load_elf_module(const char *path)
         loaded += (uint64_t)count;
     }
     vfs_close_file(&file);
+
+    uint64_t payload_size;
+    if (!security_verify_signed_module(
+            file_data,
+            file_size,
+            &payload_size) ||
+        payload_size > file_size)
+    {
+        kfree(file_data);
+        serial_log(SERIAL_LOG_ERROR,
+                   "Kernel module signature verification failed");
+        return false;
+    }
+    file_size = payload_size;
 
     if (file_size < sizeof(elf64_header_t))
     {

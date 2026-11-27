@@ -397,6 +397,36 @@ pub extern "C" fn kernel_panic_exception(
     finish_panic(&output)
 }
 
+pub(crate) fn security_write_protection_panic(
+    fault_address: u64,
+    error_code: u64,
+    instruction_pointer: u64,
+) -> ! {
+    let mut output = begin_panic();
+    let _ = output.write_str(
+        "*** SECURITY PANIC ***\n\
+         STOP CODE: KERNEL_WRITE_PROTECTION\n\
+         Reason: The CPU blocked a supervisor-mode write to a read-only page.\n\
+         Fault address: ",
+    );
+    write_hex(&mut output, fault_address);
+    let _ = output.write_str("\nInstruction pointer: ");
+    write_hex(&mut output, instruction_pointer);
+    let _ = output.write_str("\nError code: ");
+    write_hex(&mut output, error_code);
+    let _ = output
+        .write_str("\nPossible cause: a kernel/driver bug or an attempted memory modification.\n");
+    write_stack_trace(&mut output, Some(instruction_pointer));
+    let _ = output.write_str(
+        "Tips:\n\
+         - Record the stop code, addresses, and stack trace.\n\
+         - Undo recent kernel or driver changes and boot a known-good build.\n\
+         - Check serial logs before retrying; do not repeatedly boot the same build.\n\
+         System halted.\n",
+    );
+    finish_panic(&output)
+}
+
 #[panic_handler]
 fn rust_panic(info: &PanicInfo<'_>) -> ! {
     let mut output = begin_panic();

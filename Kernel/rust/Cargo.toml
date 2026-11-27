@@ -1,0 +1,16 @@
+[package]
+name = "versitile-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["staticlib"]
+
+[features]
+default = []
+rust-mm = []
+
+[dependencies]
+ed25519-dalek = { version = "2.1", default-features = false }
+sha2 = { version = "0.10", default-features = false }

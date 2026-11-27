@@ -1,10 +1,13 @@
 
 include config.cfg
 
-RUSTC ?= rustc
+CARGO ?= cargo
 RUST_TARGET ?= x86_64-unknown-none
 PYTHON ?= python3
 OBJCOPY ?= objcopy
+MODULE_SIGNING_KEY ?= $(HOME)/.config/versitileos/module-signing-key.pem
+MODULE_SIGNING_PUBLIC_KEY = security/cert/module_signing_public_key.bin
+MODULE_SIGNING_KEY_DEPENDENCY = $(wildcard $(MODULE_SIGNING_KEY))
 
 ENABLED_DRIVER_SOURCES = $(foreach source,$(DRIVER_SOURCES),$(if $(filter y,$(DRIVER_ENABLE_$(source))),$(source)))
 KERNEL_MM_C_SOURCES = \
@@ -17,10 +20,8 @@ KERNEL_MM_C_SOURCES = \
 	Kernel/mm/heap/heap.c
 ifeq ($(MM_IMPLEMENTATION),1)
 KERNEL_MM_SELECTED_C_SOURCES = $(KERNEL_MM_C_SOURCES)
-RUST_MM_CFG =
 else ifeq ($(MM_IMPLEMENTATION),2)
 KERNEL_MM_SELECTED_C_SOURCES =
-RUST_MM_CFG = --cfg 'feature="rust-mm"'
 else
 $(error MM_IMPLEMENTATION must be 1 (C) or 2 (Rust), got '$(MM_IMPLEMENTATION)')
 endif
@@ -28,8 +29,9 @@ KERNEL_SOURCES = $(KERNEL_C_SOURCES) $(KERNEL_MM_SELECTED_C_SOURCES) $(ENABLED_D
 C_OBJECTS = $(KERNEL_SOURCES:%.c=$(BUILD)/%.o)
 ASM_OBJECTS = $(ASM_SOURCES:%.asm=$(BUILD)/asm/%.o)
 RUST_LIBRARIES = $(BUILD)/rust/kernel-mm$(MM_IMPLEMENTATION).a
-RUST_SOURCES = $(shell find rust/src -type f -name '*.rs')
-RUST_DEPENDENCIES = $(filter-out $(KERNEL_RUST_SOURCES),$(RUST_SOURCES))
+RUST_SOURCES = $(shell find rust/src security -type f \( -name '*.rs' -o -name '*.bin' \))
+RUST_DEPENDENCIES = $(filter-out $(KERNEL_RUST_SOURCES),$(RUST_SOURCES)) \
+	rust/Cargo.toml rust/Cargo.lock
 PANIC_IMAGE_SOURCE = tools/panic.png
 PANIC_IMAGE_DATA = $(BUILD)/panic_background.rgb
 PANIC_IMAGE_OBJECT = $(BUILD)/panic_background.o
@@ -85,7 +87,7 @@ KERNEL_CONFIG_SIGNATURE_FILE = $(BUILD)/kernel-config.signature
 CONFIG_SIGNATURE = $(shell sed '/^[[:space:]]*DRIVER_ENABLE_/d' config.cfg | cksum)
 ACTIVE_CONFIG_SIGNATURE = $(shell cat $(KERNEL_CONFIG_SIGNATURE_FILE) 2>/dev/null)
 
-.PHONY: all kernel modules libc graphics-libs libx doom rootfs iso run run-debug run-disk cfg clean clr help test-ext2 test-gpt test-fat32 test-installer test-rtl810x test-ar5007eg test-libx
+.PHONY: all kernel modules module-signing-key libc graphics-libs libx doom rootfs iso run run-debug run-disk cfg clean clr help test-ext2 test-gpt test-fat32 test-installer test-rtl810x test-ar5007eg test-libx
 .PHONY: FORCE_CONFIG_SIGNATURE
 
 HOST_CC ?= gcc
@@ -96,6 +98,9 @@ all: iso
 kernel: $(BUILD)/kernel.elf
 
 modules: $(MODULE_INSTALLS)
+
+module-signing-key:
+	$(PYTHON) tools/module_signing.py keygen --replace-trusted-key
 
 $(BUILD)/kernel.elf: $(OBJECTS) $(KERNEL_LINKER_SCRIPT)
 	$(LD) $(LDFLAGS) -o $@ $(OBJECTS)
@@ -212,33 +217,46 @@ $(VIRTIO_NET_MODULE_BUILD): $(BUILD)/modules/virtio_net_module.o $(BUILD)/Driver
 $(VIRTIO_GPU_MODULE_BUILD): $(BUILD)/modules/virtio_gpu_module.o $(BUILD)/Drivers/Virtio/virtio_gpu.o
 	$(LD) -r -o $@ $^
 
-$(MODULE_INSTALL_DIR)/radeonhd.ko: $(RADEONHD_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/radeonhd.ko: $(BUILD)/modules/radeonhd.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/intel_hd2000.ko: $(INTEL_HD2000_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/intel_hd2000.ko: $(BUILD)/modules/intel_hd2000.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/nvidia_8400gs.ko: $(NVIDIA_8400GS_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/nvidia_8400gs.ko: $(BUILD)/modules/nvidia_8400gs.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/e1000.ko: $(E1000_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/e1000.ko: $(BUILD)/modules/e1000.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/realtek_rtl810x.ko: $(RTL810X_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/realtek_rtl810x.ko: $(BUILD)/modules/realtek_rtl810x.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/virtio_net.ko: $(VIRTIO_NET_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/virtio_net.ko: $(BUILD)/modules/virtio_net.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
 
-$(MODULE_INSTALL_DIR)/virtio_gpu.ko: $(VIRTIO_GPU_MODULE_BUILD)
+$(MODULE_INSTALL_DIR)/virtio_gpu.ko: $(BUILD)/modules/virtio_gpu.ko.signed
 	mkdir -p $(dir $@)
 	cp $< $@
+
+$(BUILD)/modules/%.ko.signed: $(BUILD)/modules/%.ko \
+	tools/module_signing.py $(MODULE_SIGNING_PUBLIC_KEY) \
+	$(MODULE_SIGNING_KEY_DEPENDENCY)
+	@test -r "$(MODULE_SIGNING_KEY)" || { \
+		echo "Missing module signing key: $(MODULE_SIGNING_KEY)" >&2; \
+		echo "Run 'make module-signing-key' or set MODULE_SIGNING_KEY." >&2; \
+		exit 1; \
+	}
+	$(PYTHON) tools/module_signing.py sign \
+		--key "$(MODULE_SIGNING_KEY)" \
+		--trusted-key "$(MODULE_SIGNING_PUBLIC_KEY)" \
+		$< $@
 
 # Compile C files
 $(BUILD)/%.o: %.c $(KERNEL_CONFIG_STAMP)
@@ -256,23 +274,25 @@ $(BUILD)/asm/%.o: %.asm $(KERNEL_CONFIG_STAMP)
 
 $(BUILD)/rust/kernel-mm1.a: $(KERNEL_RUST_SOURCES) $(RUST_DEPENDENCIES)
 	mkdir -p $(dir $@)
-	$(RUSTC) --edition=2021 --crate-name=versitile_kernel \
-		--crate-type=staticlib --emit=link --target=$(RUST_TARGET) \
-		-C panic=abort -C opt-level=2 -C relocation-model=static \
-		-C force-frame-pointers=yes \
-		-C code-model=kernel -C no-redzone=yes \
-		-C force-unwind-tables=no -C target-feature=-sse,-sse2 \
-		-o $@ $(KERNEL_RUST_SOURCES)
+	CARGO_CFG_CURVE25519_DALEK_BACKEND=serial \
+		RUSTFLAGS="-C panic=abort -C opt-level=2 -C relocation-model=static \
+		-C force-frame-pointers=yes -C code-model=kernel -C no-redzone=yes \
+		-C force-unwind-tables=no -C target-feature=-sse,-sse2" \
+		CARGO_TARGET_DIR=$(BUILD)/cargo-mm1-serial \
+		$(CARGO) build --manifest-path rust/Cargo.toml --release \
+		--locked --target=$(RUST_TARGET) --no-default-features
+	cp $(BUILD)/cargo-mm1-serial/$(RUST_TARGET)/release/libversitile_kernel.a $@
 
 $(BUILD)/rust/kernel-mm2.a: $(KERNEL_RUST_SOURCES) $(RUST_DEPENDENCIES)
 	mkdir -p $(dir $@)
-	$(RUSTC) --edition=2021 --crate-name=versitile_kernel \
-		--crate-type=staticlib --emit=link --target=$(RUST_TARGET) \
-		$(RUST_MM_CFG) -C panic=abort -C opt-level=2 -C relocation-model=static \
-		-C force-frame-pointers=yes \
-		-C code-model=kernel -C no-redzone=yes \
-		-C force-unwind-tables=no -C target-feature=-sse,-sse2 \
-		-o $@ $(KERNEL_RUST_SOURCES)
+	CARGO_CFG_CURVE25519_DALEK_BACKEND=serial \
+		RUSTFLAGS="-C panic=abort -C opt-level=2 -C relocation-model=static \
+		-C force-frame-pointers=yes -C code-model=kernel -C no-redzone=yes \
+		-C force-unwind-tables=no -C target-feature=-sse,-sse2" \
+		CARGO_TARGET_DIR=$(BUILD)/cargo-mm2-serial \
+		$(CARGO) build --manifest-path rust/Cargo.toml --release \
+		--locked --target=$(RUST_TARGET) --no-default-features --features rust-mm
+	cp $(BUILD)/cargo-mm2-serial/$(RUST_TARGET)/release/libversitile_kernel.a $@
 
 ifneq ($(strip $(CONFIG_SIGNATURE)),$(strip $(ACTIVE_CONFIG_SIGNATURE)))
 $(KERNEL_CONFIG_STAMP): FORCE_CONFIG_SIGNATURE

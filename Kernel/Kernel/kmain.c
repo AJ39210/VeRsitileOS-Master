@@ -12,6 +12,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "isr.h"
+#include "security.h"
 #include "apic.h"
 #include "pic.h"
 #include "irq.h"
@@ -302,6 +303,15 @@ void kmain(void)
 
     serial_log(SERIAL_LOG_INFO, "Initializing ISR");
     isr_init();
+
+    serial_log(SERIAL_LOG_INFO, "Enabling kernel write protection");
+    if (!security_init()) {
+        serial_log(
+            SERIAL_LOG_ERROR,
+            "Kernel write protection could not be enabled"
+        );
+        halt_forever();
+    }
 
     /* -----------------------------------------------------
        MEMORY MANAGER
