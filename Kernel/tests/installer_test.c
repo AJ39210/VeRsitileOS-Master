@@ -19,6 +19,11 @@ extern const uint8_t binary_limine_hdd_bin_data[];
 #define TEST_NODE_DATA 16384
 #define TEST_STORED_SECTOR_LIMIT 512
 
+static const uint8_t expected_limine_bios_guid[16] = {
+    0x48, 0x61, 0x68, 0x21, 0x49, 0x64, 0x6F, 0x6E,
+    0x74, 0x4E, 0x65, 0x65, 0x64, 0x45, 0x46, 0x49
+};
+
 typedef struct
 {
     bool used;
@@ -692,6 +697,10 @@ int main(void)
         written_partitions[1].start_lba != 34816 ||
         written_partitions[1].sector_count != 262144 ||
         written_partitions[2].start_lba != 296960 ||
+        memcmp(
+            written_partitions[0].type_guid,
+            expected_limine_bios_guid,
+            sizeof(expected_limine_bios_guid)) != 0 ||
         fat_format_count != 1 || ext2_format_count != 1)
         return fail("create expected GPT and filesystem layout");
 
@@ -717,13 +726,20 @@ int main(void)
         return fail("extract installed terminal");
     if (node_find("/mnt/installer-root/bin/install") >= 0)
         return fail("do not install live installer");
+    if (!file_equals(
+            "/mnt/installer-root/boot/limine/limine-bios.sys",
+            "bios stage file"))
+        return fail("install BIOS Stage 3 on root partition");
 
     if (!file_equals(
             "/mnt/installer-efi/EFI/BOOT/BOOTX64.EFI",
             "uefi boot file") ||
         !file_equals(
             "/mnt/installer-efi/boot/kernel.elf",
-            "test kernel image"))
+            "test kernel image") ||
+        !file_equals(
+            "/mnt/installer-efi/boot/limine/limine-bios.sys",
+            "bios stage file"))
         return fail("install EFI executable and kernel");
     int config_index = node_find(
         "/mnt/installer-efi/boot/limine/limine.conf");

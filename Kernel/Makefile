@@ -310,15 +310,37 @@ ifneq ($(strip $(MISSING_GRAPHICS_OUTPUTS)),)
 $(GRAPHICS_STAMP): FORCE_GRAPHICS_LIBS
 endif
 
+GRAPHICS_SOURCE_TREE_AVAILABLE := $(and \
+	$(wildcard $(LIBC_ROOT)/include/stddef.h), \
+	$(wildcard $(LIBC_ROOT)/zlib-1.3.2/adler32.c), \
+	$(wildcard $(LIBC_ROOT)/libpng-1.6.59/png.c))
+ifeq ($(strip $(GRAPHICS_SOURCE_TREE_AVAILABLE)),)
+$(GRAPHICS_STAMP):
+	@test -z "$(strip $(MISSING_GRAPHICS_OUTPUTS))" || { \
+		echo "Cannot build graphics libraries: sources and prebuilt outputs are missing: $(MISSING_GRAPHICS_OUTPUTS)" >&2; \
+		exit 1; \
+	}
+	mkdir -p $(dir $@)
+	touch $@
+else
 $(GRAPHICS_STAMP): $(LIBC_ROOT)/Makefile $(GRAPHICS_BUILD_INPUTS)
 	$(MAKE) -C $(LIBC_ROOT) all
 	mkdir -p $(dir $@)
 	touch $@
+endif
 
 graphics-libs: $(GRAPHICS_STAMP)
 
+ifneq ($(wildcard $(LIBX_ROOT)/Makefile),)
 libx:
 	$(MAKE) -C $(LIBX_ROOT) ROOT=$(abspath $(ROOT)) all
+else
+libx:
+	@test -f "$(ROOT)/system/lib/libx.a" -a -d "$(ROOT)/system/include/X11" || { \
+		echo "Cannot build libx: sources and packaged library are missing." >&2; \
+		exit 1; \
+	}
+endif
 
 doom: $(USER_DOOM)
 
@@ -332,7 +354,9 @@ rootfs: kernel modules $(SYSTEM2_TERMINAL) $(SYSTEM2_INIT) \
 	cp $(BUILD)/kernel.elf $(SYSTEM2_ROOT)/boot/kernel.elf
 	cp $(LIMINE)/limine-bios.sys $(SYSTEM2_ROOT)/boot/limine/
 	cp -a $(ROOT)/system/lib/. $(SYSTEM2_ROOT)/lib/
+ifneq ($(abspath $(DOOM_IWAD_SOURCE_DIR)),$(abspath $(SYSTEM2_ROOT)/usr/share/doom))
 	cp $(DOOM_IWADS) $(SYSTEM2_ROOT)/usr/share/doom/
+endif
 	cp $(DOOM_IWAD_LICENSE) \
 		$(SYSTEM2_ROOT)/usr/share/doom/COPYING.FREEDOOM
 	tar --format=ustar --create --file=$(ROOTFS_ARCHIVE) \
@@ -511,12 +535,23 @@ $(USER_VCC): $(USER_VCC_SOURCE) $(USER_VCC_HEADERS) \
 		-L$(BUILD)/libc \
 		-L$(ROOT)/system/lib $(USER_COMMAND_LIBS)
 
+DOOM_SOURCE_TREE_AVAILABLE := $(and \
+	$(wildcard $(DOOM_ENGINE)/doomdef.c), \
+	$(wildcard $(DOOM_ROOT)/versitile/i_versitile_main.c))
+ifneq ($(strip $(DOOM_SOURCE_TREE_AVAILABLE)),)
 $(USER_DOOM): $(DOOM_SOURCES) $(DOOM_PLATFORM_SOURCES) $(DOOM_HEADERS) \
 	$(USER_CRT0) $(LIBC_SHARED) $(LIBC_HEADERS)
 	mkdir -p $(SYSTEM_BIN)
 	$(CC) $(DOOM_CFLAGS) \
 		-o $@ $(USER_CRT0) $(DOOM_SOURCES) $(DOOM_PLATFORM_SOURCES) \
 		-L$(BUILD)/libc -L$(ROOT)/system/lib -lc
+else
+$(USER_DOOM):
+	@test -x "$@" || { \
+		echo "Cannot build Doom: sources and packaged executable are missing: $@" >&2; \
+		exit 1; \
+	}
+endif
 
 $(USER_SYSTEMD): $(USER_SYSTEMD_SOURCE) $(USER_SYSTEMD_HEADERS) \
 	$(USER_CRT0) $(LIBC_SHARED) $(LIBC_HEADERS)
@@ -568,12 +603,20 @@ $(SYSTEM2_VCC): $(USER_VCC_SOURCE) $(USER_VCC_HEADERS) \
 		-o $@ $(USER_CRT0) $(USER_VCC_SOURCE) \
 		-L$(BUILD)/libc -L$(ROOT)/system/lib $(USER_COMMAND_LIBS)
 
+ifneq ($(strip $(DOOM_SOURCE_TREE_AVAILABLE)),)
 $(SYSTEM2_DOOM): $(DOOM_SOURCES) $(DOOM_PLATFORM_SOURCES) $(DOOM_HEADERS) \
 	$(USER_CRT0) $(LIBC_SHARED) $(LIBC_HEADERS)
 	mkdir -p $(SYSTEM2_BIN)
 	$(CC) $(DOOM_CFLAGS) \
 		-o $@ $(USER_CRT0) $(DOOM_SOURCES) $(DOOM_PLATFORM_SOURCES) \
 		-L$(BUILD)/libc -L$(ROOT)/system/lib -lc
+else
+$(SYSTEM2_DOOM):
+	@test -x "$@" || { \
+		echo "Cannot build Doom: sources and packaged executable are missing: $@" >&2; \
+		exit 1; \
+	}
+endif
 
 $(SYSTEM2_SETUP): $(USER_SETUP_SOURCE) $(USER_TERMINAL_HEADERS) \
 	$(USER_CRT0) $(LIBC_SHARED) $(LIBC_HEADERS)

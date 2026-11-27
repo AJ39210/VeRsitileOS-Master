@@ -42,6 +42,11 @@ The graphics archives are static libraries:
   rasterizers. Optional font drivers, compressed-font helpers, environment
   property parsing, and SVG support are disabled.
 
+If `port/libc/include/` is absent, the kernel build uses the matching headers in
+`system/include/`. When the zlib or libpng source trees are unavailable,
+`graphics-libs` reuses the packaged archives in `system/lib/`; it reports an
+error if neither the sources nor the required archives are present.
+
 Applications should include headers from `system/include/` and
 `system/include/freetype2/`, and link in dependency order, for example
 `-lfreetype -lpng -lz -lc`. The archives are compiled as freestanding x86-64
